@@ -32,14 +32,6 @@ class doubleQueue:
     def __init__(self):
         self.elements = []
 
-#Adding elements to the front
-    def add_front(self, item):
-        self.elements.insert(0, item)
-
-#Adding elements to the back
-    def add_rear(self, item):
-        self.elements.append(item)
-
 #Accessing elements via index
     def __getitem__(self, index):
         return self.elements[index]
