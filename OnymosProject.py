@@ -60,7 +60,7 @@ class doubleQueue:
             return self.elements.pop()
     
     
-#Class for tracking orders that will contain the underlying functions for adding and matching orders
+# Class for tracking orders that will contain the underlying functions for adding and matching orders
 class StockOrderTracker:
     def __init__(self):
         self.buys = doubleQueue()
@@ -76,7 +76,7 @@ class StockOrderTracker:
             print("Seems like there's an error with the order, check the type")
             return None
     
-    # Matches orders via buy and sell prices
+    # Matches orders via buy and sell prices and checks the flags on the current item in the list. It will pop items that are in use in other threads
     def match_Orders(self):
         isMatched = False
         while not self.buys.is_Empty() and not self.sells.is_Empty():
@@ -98,31 +98,48 @@ class StockOrderTracker:
                 
                 print("A match was made! " + str(quantityCheck) + " stocks were matched of " + str(current_Buy.ticker))
                 print("The price was " + str(current_Buy.price))
+            elif current_Buy.price >= current_Sell.price and current_Buy.get_Flag() == False and current_Sell.get_Flag() == True:
+                self.buys.pop_Rear()
+                self.buys.add_front(current_Buy)
+                self.sells.pop_Rear()
+                self.sells.add_front(current_Sell)
+                break
+            elif current_Buy.price >= current_Sell.price and current_Buy.get_Flag() == True and current_Sell.get_Flag() == False:
+                self.buys.pop_Rear()
+                self.buys.add_front(current_Buy)
+                break
+            elif current_Buy.price >= current_Sell.price and current_Buy.get_Flag() == False and current_Sell.get_Flag() == True:
+                self.sells.pop_Rear()
+                self.sells.add_front(current_Sell)
+                break
             else:
                 break
         return isMatched
     
-
+# Is a wrapper class that runs the underlying functions of the Stock Order tracker
 class TradeWrapper:
     def __init__(self):
         self.Trackers = []
         for i in range(TICKERMAX):
             self.Trackers.append(StockOrderTracker())
 
+    # Uses the hash function to create the index value for the order which is the modulo'd against the max number of orders
     def add_Order(self,order_type, ticker, price, quantiy):
         order = Order(orderType=order_type, tickerName=ticker, price=price, quantity=quantiy)
         index = hash(ticker) % TICKERMAX
         self.Trackers[index].add_Order(order)
         print("Created order of type " + str(order_type) + " for ticker " + str(ticker) + " in quantity of " + str(quantiy) + " for the price of " + str(price))
     
+    # Runs the match order function from the tracker class on all trackers
     def match_Orders(self):
         for tracker in self.Trackers:
             tracker.match_Orders()
     
+    # Returns the index of an order. Was used to debug hash
     def getOrderIndex(self,order):
         return hash(order.ticker) % TICKERMAX
 
-#Just grabbed a bunch of stock tickers from online  
+# Just grabbed a bunch of stock tickers from online  
 def generate_random_Orders(TradeWrapper):
     ticker = random.choice(["AAPL","GOOG","MSFT", "AMZN", "NVDA","KO","WMT","MCD", "PEP", "GS", "CSCO", "IBM", "ORCL", "AMD"])
     order_type = random.choice([BUY, SELL])
@@ -130,7 +147,8 @@ def generate_random_Orders(TradeWrapper):
     price = random.randint(50, 200000)
 
     TradeWrapper.add_Order(order_type,ticker,price,quantity)
-    
+
+# I have assigned a fixed duration over which the simulator runs to save time while testing and debugging but this can be changed   
 def tradeSimulator(TradeWrapper, duration=5):
     start_time = time.time()
     while time.time() - start_time < duration:
