@@ -3,8 +3,8 @@ import time
 
 # Constants to keep track of
 TICKERMAX = 1024
-BUY = 'BUY' = 'buy' = 'Buy'
-SELL = 'SELL' = 'sell' = 'Sell'
+BUY = 'BUY'
+SELL = 'SELL'
 
 # Defining what an order contains based on description
 class Order:
@@ -13,8 +13,19 @@ class Order:
         self.ticker = tickerName
         self.price = price
         self.quantity = quantity
+        self.inUseFlag = False
+    
+    def toggle_Flag(self):
+        if self.inUseFlag == False:
+            self.inUseFlag = True
+        elif self.inUseFlag == True:
+            self.inUseFlag = False
+        return self.inUseFlag
+    
+    def get_Flag(self):
+        return self.inUseFlag
 
-# Since we can't import I wanted to define a double Queue, a hash map or dictionary would have taken a bit longer to implement and I was short on time 
+# Since we can't import or use dictionaries I wanted to define a double Queue. A hash map or dictionary would have taken a bit longer to implement and I was short on time 
 class doubleQueue:
     def __init__(self):
         self.elements = []
@@ -31,6 +42,9 @@ class doubleQueue:
     def is_Empty(self):
         return len(self.elements) == 0
     
+    def __getitem__(self, index):
+        return self.elements[index]
+
     def pop_Front(self):
         if self.is_Empty():
             print("Looks like it's Empty")
@@ -45,19 +59,6 @@ class doubleQueue:
         else:
             return self.elements.pop()
     
-    def peek_Front(self):
-        if self.is_Empty():
-            print("Looks like it's Empty")
-            return
-        else:
-            return self.elements[0]
-    
-    def peek_Rear(self):
-        if self.is_Empty():
-            print("Looks like it's Empty")
-            return
-        else:
-            return self.elements[0]
     
 #Class for tracking orders that will contain the underlying functions for adding and matching orders
 class StockOrderTracker:
@@ -78,23 +79,27 @@ class StockOrderTracker:
     # Matches orders via buy and sell prices
     def match_Orders(self):
         isMatched = False
-        while self.buys and self.sells:
-            current_Buy = self.buys.peek_Front
-            current_Sell = self.sells.peek_Front
-            if current_Buy.price >= current_Sell.price:
+        while not self.buys.is_Empty() and not self.sells.is_Empty():
+            current_Buy = self.buys[0]
+            current_Sell = self.sells[0]
+            if current_Buy.price >= current_Sell.price and current_Buy.get_Flag() == False and current_Sell.get_Flag() == False:
+                self.buys[0].toggle_Flag()
+                self.sells[0].toggle_Flag()
                 quantityCheck = min(current_Buy.quantity,current_Sell.quantity)
                 current_Buy.quantity -=quantityCheck
                 current_Sell.quantity -=quantityCheck
                 isMatched = True
+                self.buys[0].toggle_Flag()
+                self.sells[0].toggle_Flag()
                 if current_Buy.quantity == 0:
                     self.buys.pop_Rear()
                 if current_Sell.quantity == 0:
                     self.sells.pop_Rear()
-                print("A match was made! " + quantityCheck + " stocks were matched of" + current_Buy.ticker)
-                print("The price was " + current_Buy.price)
+                
+                print("A match was made! " + str(quantityCheck) + " stocks were matched of " + str(current_Buy.ticker))
+                print("The price was " + str(current_Buy.price))
             else:
                 break
-        print("Match completed!")
         return isMatched
     
 
@@ -102,14 +107,15 @@ class TradeWrapper:
     def __init__(self):
         self.Trackers = []
         for i in range(TICKERMAX):
-            self.Trackers[i] = StockOrderTracker()
+            self.Trackers.append(StockOrderTracker())
 
     def add_Order(self,order_type, ticker, price, quantiy):
         order = Order(orderType=order_type, tickerName=ticker, price=price, quantity=quantiy)
         index = hash(ticker) % TICKERMAX
         self.Trackers[index].add_Order(order)
+        print("Created order of type " + str(order_type) + " for ticker " + str(ticker) + " in quantity of " + str(quantiy) + " for the price of " + str(price))
     
-    def match_Order(self):
+    def match_Orders(self):
         for tracker in self.Trackers:
             tracker.match_Orders()
     
@@ -123,16 +129,18 @@ def generate_random_Orders(TradeWrapper):
     quantity = random.randint(1, 100000)
     price = random.randint(50, 200000)
 
-    TradeWrapper.addOrder(order_type,ticker,price,quantity)
+    TradeWrapper.add_Order(order_type,ticker,price,quantity)
     
-def tradeSimulator(TradeWrapper, duration=10):
+def tradeSimulator(TradeWrapper, duration=5):
     start_time = time.time()
     while time.time() - start_time < duration:
-        generate_random_Orders(market)
-        TradeWrapper.match_orders()
-        time.sleep(random.uniform(0.1, 0.5))  # Simulate random time interval between orders
+        generate_random_Orders(TradeWrapper)
+        TradeWrapper.match_Orders()
+        # Simulate random time interval between orders
+        time.sleep(random.uniform(0.1, 0.5))
 
 if __name__ == "__main__":
     stockmarket = TradeWrapper()
+    print("Trading time starts now!")
     tradeSimulator(stockmarket)
 
